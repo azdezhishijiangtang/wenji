@@ -1,5 +1,5 @@
 {
-  "name": "wenyi",
+  "name": "wenji",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -22,5 +22,7 @@
     "typescript": "^5.9.3",
     "vite": "^8.3.5",
     "vitest": "^5.1.0"
-  }
+  },
+  "description": "文几 · 以辨异、结构、转化、积累为底层的语文训练站",
+  "homepage": "https://azdezhishijiangtang.github.io/wenji/"
 }
