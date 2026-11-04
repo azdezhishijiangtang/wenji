@@ -8,7 +8,7 @@ import {
   pendingErrorTags,
   setErrorTag,
 } from '../engine/store'
-import { DRILLS, kindLabel, kindOf, setActiveGroup } from '../engine/practice'
+import { DRILLS, allGroups, kindLabel, kindOf, setActiveGroup, todayDoneFor } from '../engine/practice'
 import { ERROR_TAGS } from '../engine/types'
 import { fmtDateFull } from '../engine/util'
 import { useDB, useNow } from '../ui/useDB'
@@ -27,6 +27,9 @@ export default function Today() {
   const stats = getTodayStats(now)
   const daily = getDaily(now)
   const dailyStreak = getDailyStreak(now)
+  const foundationGroups = allGroups(db, 'foundation')
+  const foundationDone = todayDoneFor(db, 'foundation', now)
+  const foundationTotal = foundationGroups.reduce((n, g) => n + g.items.length, 0)
   const [toast, setToast] = useState('')
 
   const groups = [...queue.due, ...queue.fresh]
@@ -79,6 +82,17 @@ export default function Today() {
           tone={cal.bias != null && Math.abs(cal.bias) > 20 ? 'warn' : undefined}
         />
       </div>
+
+      <button className="foundation-strip" onClick={() => go('/foundation')}>
+        <span>
+          <b>基本功 · 辨异与重组</b>
+          <em>一个词改变什么，一句话为什么排在这里。不是题型，是阅读和写作的共同底层。</em>
+        </span>
+        <span className="foundation-strip__side">
+          {foundationTotal > 0 ? `${foundationDone} / ${foundationTotal}` : '去练'}
+          <i>→</i>
+        </span>
+      </button>
 
       <section className="today-teaser">
         <div>
