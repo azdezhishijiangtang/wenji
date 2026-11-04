@@ -3404,3 +3404,8 @@ mark {
     padding: 11px 12px;
   }
 }
+
+.today-first {
+  margin: 7px 0 0;
+  font-size: 12px;
+}

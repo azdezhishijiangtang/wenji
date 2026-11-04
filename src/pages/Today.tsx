@@ -62,6 +62,11 @@ export default function Today() {
           <p className="page-head__intro">
             队列由引擎按到期时间、校准偏差和新卡上限决定。你不需要决定先做哪一项。
           </p>
+          {db.reviews.length === 0 && (
+            <p className="today-first">
+              <button className="linkbtn" onClick={() => go('/guide')}>第一次来？先花 3 分钟看使用说明 →</button>
+            </p>
+          )}
         </div>
         <div className="today-head__badge">{queue.read_only ? '夜间只读' : '今日队列'}</div>
       </header>
