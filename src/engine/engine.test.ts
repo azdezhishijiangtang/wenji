@@ -437,15 +437,14 @@ describe('引擎唯一写入口（假 localStorage 端到端）', () => {
     expect(JSON.parse(raw).settings.ai.apiKey).toBe('')
   })
 
-  it('夜间拒绝写入', () => {
-    const q = store.getQueue(NOW)
-    const item = q.fresh.flatMap((g) => g.items)[0]
-    if (!item) return
-    expect(() =>
-      store.submitReview(
-        { itemId: item.item_id, correct: true, confidence: 50, timeSpent: 5 },
-        new Date(2026, 10, 3, 23, 45),
-      ),
-    ).toThrow(/夜间模式/)
+  it('夜间不派队列，但自选练习仍可写入', () => {
+    const item = Object.values(store.getDB().items)[0]
+    const before = store.getDB().reviews.length
+    const out = store.submitReview(
+      { itemId: item.item_id, correct: true, confidence: 50, timeSpent: 5 },
+      new Date(2026, 10, 3, 23, 45),
+    )
+    expect(out.next_due).toBeTruthy()
+    expect(store.getDB().reviews.length).toBe(before + 1)
   })
 })

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { CLOZE_TEXTS } from '../content/cloze'
 import { allGroups, remainingItems, setActiveGroup, takeActiveGroup } from '../engine/practice'
 import { getDB, submitReview } from '../engine/store'
-import { isNight } from '../engine/util'
 import { useDB, useNow } from '../ui/useDB'
 import { ConfidencePicker, Empty, Evidence, Notice } from '../ui/common'
 
@@ -13,7 +12,7 @@ function go(path: string) {
 export default function Cloze() {
   const db = useDB()
   const now = useNow(30000)
-  const readOnly = isNight(now)
+  const readOnly = false // 夜间不派新任务，但自选练习不再锁死
 
   const boot = useRef<{ groupId: string; steps: string[] } | null>(null)
   if (!boot.current) {

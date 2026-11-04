@@ -21,9 +21,9 @@ export default function Drills() {
         intro="六项不是题型，是六种底层操作：辨异、结构、积累、转化、感受、句法。考试只是它们的抽样；这里可以自选加练，引擎仍会把到期内容排进首页队列。"
       />
 
-      <Notice tone={queue.read_only ? 'warn' : 'info'} title={queue.read_only ? '夜间只读' : '今日队列优先'}>
+      <Notice tone={queue.read_only ? 'warn' : 'info'} title={queue.read_only ? '夜间模式' : '今日队列优先'}>
         {queue.read_only
-          ? '23:30–06:00 只读。现在可以翻词典、看说明，但不会产生新的作答记录。'
+          ? '23:30–06:00 不推送新任务；现在仍可自选练习，作答会正常记录。想休息就明早再来。'
           : planned.length > 0
             ? `首页还有 ${planned.length} 组到期/新卡。先清队列，再自选；加练不会提高任何“刷题量”指标。`
             : '今日队列已清空。自选练习仍会进入复习档案，但引擎不主动加量。'}

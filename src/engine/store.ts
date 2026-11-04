@@ -19,7 +19,7 @@ import { buildQueue } from './queue'
 import { applyMastery, emptyModel } from './mastery'
 import { initScheduler, reviewCard } from './fsrs'
 import { biasOf, calibrationBins, calibratedModels, computeStreak, errorFingerprint, modelStats, weeklyReport } from './analytics'
-import { addDays, daysAgoIso, isNight, nowIso, startOfDay, uid } from './util'
+import { addDays, daysAgoIso, nowIso, startOfDay, uid } from './util'
 import { buildSeedDB, DEFAULT_SETTINGS, LOCAL_USER_ID, SEED_VERSION } from '../content/seed'
 import { MODEL_MAP } from '../content/models'
 import {
@@ -169,7 +169,6 @@ export interface SubmitOutput extends ReviewResult {
  * 场景层不接触这三张表的写逻辑。
  */
 export function submitReview(input: SubmitInput, now = new Date()): SubmitOutput {
-  if (isNight(now)) throw new Error('夜间模式（23:30–06:00）只读，明天再做。')
   const data = load()
   const item = data.items[input.itemId]
   if (!item) throw new Error('条目不存在')

@@ -151,7 +151,7 @@ export default function App() {
 
       {isNight(now) && (
         <div className="nightbar">
-          夜间只读 · 23:30–06:00 不推送新任务。巩固发生在睡眠里，不是意志力里。
+          夜间模式 · 23:30–06:00 不推送新任务；自选练习仍可进行。巩固发生在睡眠里，不是意志力里。
         </div>
       )}
 

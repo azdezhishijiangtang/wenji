@@ -3,7 +3,6 @@ import { ARGUMENT_PASSAGES } from '../content/argument'
 import { FALLACIES, STRUCTURE_TAGS, type Fallacy, type StructureTag } from '../engine/types'
 import { allGroups, remainingItems, setActiveGroup, takeActiveGroup } from '../engine/practice'
 import { getDB, submitReview } from '../engine/store'
-import { isNight } from '../engine/util'
 import { useDB, useNow } from '../ui/useDB'
 import { ConfidencePicker, Empty, Notice } from '../ui/common'
 
@@ -16,7 +15,7 @@ const JUDGMENTS: (Fallacy | '忠实原文')[] = [...FALLACIES, '忠实原文']
 export default function Argument() {
   const db = useDB()
   const now = useNow(30000)
-  const readOnly = isNight(now)
+  const readOnly = false // 夜间不派新任务，但自选练习不再锁死
 
   const boot = useRef<{ groupId: string } | null>(null)
   if (!boot.current) {

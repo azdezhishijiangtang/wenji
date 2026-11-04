@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { PUNCTUATION_SENTENCES, SYNTAX_SENTENCES } from '../content/syntax'
 import { allGroups, remainingItems, setActiveGroup, takeActiveGroup } from '../engine/practice'
 import { getDB, submitReview } from '../engine/store'
-import { isNight } from '../engine/util'
 import { useDB, useNow } from '../ui/useDB'
 import { ConfidencePicker, Empty, Notice } from '../ui/common'
 
@@ -26,7 +25,7 @@ type Tab = 'main' | 'punct'
 export default function Syntax() {
   const db = useDB()
   const now = useNow(30000)
-  const readOnly = isNight(now)
+  const readOnly = false // 夜间不派新任务，但自选练习不再锁死
 
   const boot = useRef<{ tab: Tab; steps: string[] } | null>(null)
   if (!boot.current) {

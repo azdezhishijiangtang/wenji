@@ -68,12 +68,12 @@ export default function Today() {
             </p>
           )}
         </div>
-        <div className="today-head__badge">{queue.read_only ? '夜间只读' : '今日队列'}</div>
+        <div className="today-head__badge">{queue.read_only ? '夜间模式' : '今日队列'}</div>
       </header>
 
       {queue.read_only && (
         <Notice tone="warn" title="23:30–06:00 夜间模式">
-          现在只读：可以看档案、翻词典，但不推送新任务，也不写作答。巩固发生在睡眠里，这条规则由系统执行，不靠自律。
+          夜间不推送新任务，队列会清空。但如果你现在就是想练，仍可从「训练」自选一组；系统不催你，也不拦你。
         </Notice>
       )}
 
@@ -132,7 +132,7 @@ export default function Today() {
             title={queue.read_only ? '夜间不派新任务' : '今日队列已清空'}
             hint={
               queue.read_only
-                ? '明早再看。已经到期的内容不会消失，引擎会重新排序。'
+                ? '明早再看，或从「训练」自选一组。已经到期的内容不会消失，引擎会重新排序。'
                 : '宁可少而真，不可多而刷。想加练可以自选，但引擎不会催你。'
             }
             action={

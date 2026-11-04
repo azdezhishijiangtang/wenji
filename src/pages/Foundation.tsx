@@ -6,7 +6,6 @@ import {
   type SemanticItem,
 } from '../content/foundation'
 import type { Item, ReviewResult } from '../engine/types'
-import { isNight } from '../engine/util'
 import { reviewedTodayIds, seededShuffle } from '../engine/practice'
 import { submitReview } from '../engine/store'
 import { useDB, useNow } from '../ui/useDB'
@@ -25,7 +24,7 @@ function itemId(id: string) {
 export default function Foundation() {
   const db = useDB()
   const now = useNow(60000)
-  const night = isNight(now)
+  const night = false // 夜间不派新任务，但自选练习不再锁死
   const [tab, setTab] = useState<Tab>('semantic')
 
   function itemsFor(t: Tab): Item[] {
@@ -246,7 +245,7 @@ function SemanticCard({
               className={`choice-card ${chosen ? 'choice-card--chosen' : ''} ${
                 isAnswer ? 'choice-card--answer' : ''
               } ${result && chosen && !isAnswer ? 'choice-card--wrong' : ''}`}
-              disabled={Boolean(result) || confidence == null || night}
+              disabled={Boolean(result) || night}
               onClick={() => setChoice(k)}
             >
               <span className="choice-card__word">{word}</span>
@@ -406,7 +405,7 @@ function CoherenceCard({
             <button
               key={s.id}
               className="sentence-chip"
-              disabled={confidence == null || night}
+              disabled={night}
               onClick={() => setPicked([...picked, s.id])}
             >
               {s.text}
