@@ -3010,3 +3010,397 @@ mark {
     max-width: 34ch;
   }
 }
+
+/* 使用说明 */
+.linkbtn {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.linkbtn:hover {
+  color: var(--ink);
+}
+
+.guide-page {
+  max-width: 1080px;
+}
+
+.guide-layout {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 34px;
+  align-items: start;
+  margin-top: 22px;
+}
+
+.guide-toc {
+  position: sticky;
+  top: 78px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper-2);
+}
+
+.guide-toc .eyebrow {
+  margin: 0 6px 7px;
+}
+
+.guide-toc__link {
+  display: flex;
+  gap: 9px;
+  align-items: baseline;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.guide-toc__link span {
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  color: var(--gold);
+}
+
+.guide-toc__link:hover {
+  color: var(--ink);
+  background: var(--paper-3);
+}
+
+.guide-toc__top {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11.5px;
+  text-align: left;
+  padding: 9px 6px 2px;
+  margin-top: 5px;
+  border-top: 1px solid var(--line);
+  cursor: pointer;
+}
+
+.guide-body {
+  min-width: 0;
+}
+
+.guide-section {
+  scroll-margin-top: 82px;
+  padding: 0 0 26px;
+  margin-bottom: 26px;
+  border-bottom: 1px solid var(--line);
+}
+
+.guide-section > h2 {
+  font-family: var(--serif);
+  font-size: clamp(21px, 3vw, 27px);
+  font-weight: 600;
+  letter-spacing: .02em;
+  margin: 0 0 13px;
+}
+
+.guide-section h3 {
+  font-family: var(--serif);
+  font-size: 17px;
+  margin: 0 0 5px;
+}
+
+.guide-section p,
+.guide-section li {
+  color: var(--ink-2);
+  font-size: 14px;
+  line-height: 1.85;
+}
+
+.guide-section p {
+  margin: 8px 0;
+}
+
+.guide-section ul,
+.guide-section ol {
+  padding-left: 20px;
+  margin: 8px 0;
+}
+
+.guide-section li {
+  margin: 5px 0;
+}
+
+.guide-section code {
+  background: var(--paper-3);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: .9em;
+}
+
+.guide-three {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.guide-card {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper-2);
+}
+
+.guide-card .tag {
+  font-size: 10px;
+}
+
+.guide-card h3 {
+  font-size: 15.5px;
+}
+
+.guide-card p {
+  font-size: 12.8px;
+  line-height: 1.8;
+  margin: 6px 0 0;
+}
+
+.guide-steps {
+  counter-reset: guide-step;
+  list-style: none;
+  padding-left: 0 !important;
+}
+
+.guide-steps li {
+  counter-increment: guide-step;
+  position: relative;
+  padding-left: 30px;
+  margin: 9px 0 !important;
+}
+
+.guide-steps li::before {
+  content: counter(guide-step, decimal-leading-zero);
+  position: absolute;
+  left: 0;
+  top: 2px;
+  font-size: 11px;
+  color: var(--accent);
+  letter-spacing: .04em;
+}
+
+.guide-routine {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.guide-routine > div {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--paper-2);
+}
+
+.guide-routine b {
+  font-family: var(--serif);
+  font-size: 13px;
+  color: var(--accent);
+}
+
+.guide-routine span {
+  font-size: 13px;
+  color: var(--ink-2);
+  line-height: 1.75;
+}
+
+.guide-block {
+  margin: 18px 0;
+  padding: 13px 15px;
+  border-left: 2px solid var(--line-strong, var(--line));
+  background: linear-gradient(90deg, var(--paper-2), transparent 70%);
+  border-radius: 0 10px 10px 0;
+}
+
+.guide-block h3 .muted {
+  font-family: var(--mono, monospace);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.guide-table {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.guide-table > div {
+  display: grid;
+  grid-template-columns: 1fr 1.7fr;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.guide-table b {
+  font-size: 13px;
+}
+
+.guide-table span {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.guide-rules {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.guide-rules > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper-2);
+}
+
+.guide-rules b {
+  font-size: 12.5px;
+}
+
+.guide-rules span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.guide-faq {
+  display: grid;
+  gap: 2px;
+  margin-top: 8px;
+}
+
+.guide-faq details {
+  border-bottom: 1px solid var(--line);
+  padding: 8px 2px;
+}
+
+.guide-faq summary {
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--ink);
+  list-style: none;
+  position: relative;
+  padding-right: 20px;
+}
+
+.guide-faq summary::-webkit-details-marker {
+  display: none;
+}
+
+.guide-faq summary::after {
+  content: '+';
+  position: absolute;
+  right: 2px;
+  top: -2px;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.guide-faq details[open] summary::after {
+  content: '−';
+}
+
+.guide-faq p {
+  margin: 7px 0 3px;
+  color: var(--muted);
+  font-size: 12.8px;
+  line-height: 1.8;
+}
+
+.guide-end {
+  border-bottom: 0;
+  padding: 20px;
+  border-radius: 14px;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+}
+
+.guide-end .btn-row {
+  margin-top: 14px;
+}
+
+.footer .linkbtn {
+  font-size: 11.5px;
+}
+
+@media (max-width: 820px) {
+  .guide-layout {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .guide-toc {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 3px;
+    padding: 9px;
+  }
+
+  .guide-toc .eyebrow {
+    width: 100%;
+    margin-bottom: 2px;
+  }
+
+  .guide-toc__link {
+    font-size: 12px;
+    padding: 5px 7px;
+    background: var(--paper-3);
+  }
+
+  .guide-toc__link span {
+    display: none;
+  }
+
+  .guide-toc__top {
+    display: none;
+  }
+
+  .guide-three,
+  .guide-rules {
+    grid-template-columns: 1fr;
+  }
+
+  .guide-table > div {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .guide-section {
+    scroll-margin-top: 96px;
+  }
+
+  .guide-block {
+    padding: 11px 12px;
+  }
+}

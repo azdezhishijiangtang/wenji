@@ -19,6 +19,7 @@ const ROUTES = [
   '/library',
   '/me',
   '/settings',
+  '/guide',
 ]
 
 let container: HTMLDivElement
@@ -89,6 +90,13 @@ describe('App 路由冒烟', () => {
     })
     expect(container.textContent).toContain('充分条件')
     expect(container.textContent).toContain('语义轴')
+  })
+
+  it('使用说明页有正文，不是空壳', async () => {
+    await visit('/guide')
+    expect(container.textContent).toContain('文几不是题库')
+    expect(container.textContent).toContain('先读三件事')
+    expect(container.textContent).toContain('接入 AI')
   })
 
   it('每条路由都能渲染，不落到“这条路没有页面”', async () => {

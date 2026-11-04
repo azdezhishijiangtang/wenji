@@ -16,6 +16,7 @@ import Syntax from './pages/Syntax'
 import Library from './pages/Library'
 import Dashboard from './pages/Dashboard'
 import Settings from './pages/Settings'
+import Guide from './pages/Guide'
 
 const NAV = [
   { path: '/', label: '今日' },
@@ -26,6 +27,7 @@ const NAV = [
   { path: '/library', label: '词典' },
   { path: '/me', label: '档案' },
   { path: '/settings', label: '设置' },
+  { path: '/guide', label: '说明' },
 ]
 
 const TITLES: Record<string, string> = {
@@ -43,6 +45,7 @@ const TITLES: Record<string, string> = {
   '/library': '词典库',
   '/me': '学习档案',
   '/settings': '设置',
+  '/guide': '使用说明',
 }
 
 function currentPath(): string {
@@ -111,6 +114,8 @@ export default function App() {
         return <Dashboard />
       case '/settings':
         return <Settings />
+      case '/guide':
+        return <Guide />
       default:
         return (
           <div className="page">
@@ -169,7 +174,10 @@ export default function App() {
 
       <footer className="footer">
         <span>本机运行 · 无账号 · 无服务器</span>
-        <span>学习逻辑在引擎，页面只负责交互。</span>
+        <span>
+          学习逻辑在引擎，页面只负责交互。{' '}
+          <button className="linkbtn" onClick={() => go('/guide')}>使用说明</button>
+        </span>
       </footer>
     </div>
   )
