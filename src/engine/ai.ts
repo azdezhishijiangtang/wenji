@@ -1,19 +1,20 @@
 import type { AISettings } from './types'
+import { vault } from './byokVault'
 
 async function chat(
   ai: AISettings,
   messages: { role: 'system' | 'user'; content: string }[],
   json: boolean,
 ): Promise<string> {
-  if (!ai.enabled || !ai.apiKey) throw new Error('AI 诊断未开启')
+  if (!ai.enabled || !vault.isHandle(ai.apiKey) || !vault.has(ai.apiKey)) throw new Error('AI 诊断未开启，或密钥已锁定：请在设置页重新输入 API Key / 输入解锁口令')
   const ctrl = new AbortController()
   const timer = window.setTimeout(() => ctrl.abort(), 45000)
   try {
-    const res = await fetch(`${ai.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+    const res = await vault.secureFetch(`${ai.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${ai.apiKey}`,
+        Authorization: vault.authHeaders(ai.apiKey).Authorization,
       },
       body: JSON.stringify({
         model: ai.model,

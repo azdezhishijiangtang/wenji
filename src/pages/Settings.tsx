@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { testAI } from '../engine/ai'
+import { vault } from '../engine/byokVault'
 import {
   deleteEverything,
   exportJSON,
@@ -29,6 +30,11 @@ export default function Settings() {
   const [aiMsg, setAiMsg] = useState('')
   const [testing, setTesting] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const vaultHostRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!vaultHostRef.current) return
+    return vault.mountVaultControls(vaultHostRef.current)
+  }, [])
 
   function say(text: string, t: typeof tone = 'good') {
     setMsg(text)
@@ -49,15 +55,24 @@ export default function Settings() {
   }
 
   async function saveAI() {
-    await updateSettings({ ai })
-    say(ai.enabled ? 'AI 设置已保存。' : 'AI 已关闭，规则诊断和本地功能不受影响。')
+    const typed = ai.apiKey.trim()
+    let handle = db.settings.ai.apiKey
+    if (typed && !vault.isHandle(typed)) {
+      vault.set('ai', typed)
+      handle = vault.handleFor('ai')
+    }
+    await updateSettings({ ai: { ...ai, apiKey: handle } })
+    say(ai.enabled ? 'AI 设置已保存。密钥仅在内存中，刷新后需重新输入或凭口令解锁。' : 'AI 已关闭，规则诊断和本地功能不受影响。')
   }
 
   async function checkAI() {
+    const typed = ai.apiKey.trim()
+    if (typed && !vault.isHandle(typed)) vault.set('ai', typed)
+    const probe = { ...ai, apiKey: typed ? (vault.isHandle(typed) ? typed : vault.handleFor('ai')) : db.settings.ai.apiKey }
     setTesting(true)
     setAiMsg('')
     try {
-      const reply = await testAI(ai)
+      const reply = await testAI(probe)
       setAiMsg(`接口返回：${reply}`)
     } catch (e) {
       setAiMsg(e instanceof Error ? e.message : '连接失败')
@@ -202,12 +217,13 @@ export default function Settings() {
           <input
             className="input"
             type="password"
-            value={ai.apiKey}
+            value={vault.isHandle(ai.apiKey) ? '' : ai.apiKey}
             onChange={(e) => setAi({ ...ai, apiKey: e.target.value })}
-            placeholder="sk-…"
+            placeholder={db.settings.ai.apiKey ? '已配置 · 留空保持不变，或粘贴新密钥替换' : 'sk-…'}
             autoComplete="off"
           />
         </label>
+        <div ref={vaultHostRef} />
 
         <div className="btn-row">
           <button className="btn btn--primary" onClick={saveAI}>保存 AI 设置</button>
@@ -217,7 +233,7 @@ export default function Settings() {
         </div>
         {aiMsg && <Notice tone={aiMsg.startsWith('接口返回') ? 'good' : 'warn'}>{aiMsg}</Notice>}
         <p className="muted tiny">
-          Key 只存在本机浏览器，请求直接发往你填的接口；本站没有后端，不会经过第三方服务器。AI 调用全部由你手动触发，不后台偷跑。公共电脑上不要填 Key。
+          密钥默认只存在内存中、刷新即消失，绝不写入 localStorage；请求直接发往你填的接口，本站没有后端。AI 调用全部由你手动触发，不后台偷跑。建议使用额度受限、可随时撤销的专用子密钥。
         </p>
       </section>
 

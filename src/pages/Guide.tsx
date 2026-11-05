@@ -265,7 +265,7 @@ export default function Guide() {
               <li>回到写作、日课或诊断页，按需点 AI 按钮。</li>
             </ol>
             <Notice tone="warn" title="浏览器直连的边界">
-              Key 只存本机 localStorage；请求从浏览器直接发给你填的地址，本站没有后端中转。
+              密钥默认只存在内存中、刷新即消失，不写入 localStorage；请求从浏览器直接发给你填的地址，本站没有后端中转。
               有些接口不允许浏览器跨域，会报 CORS；这不是 Key 错，换一个允许浏览器直连的 OpenAI 兼容网关即可。
             </Notice>
           </section>

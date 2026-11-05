@@ -24,6 +24,7 @@ import { biasOf, calibrationBins, calibratedModels, computeStreak, errorFingerpr
 import { addDays, dayKey, daysAgoIso, nowIso, startOfDay, uid } from './util'
 import { buildSeedDB, DEFAULT_SETTINGS, LOCAL_USER_ID, SEED_VERSION } from '../content/seed'
 import { MODEL_MAP } from '../content/models'
+import { vault } from './byokVault'
 import {
   buildAbilityProfile,
   dailyStreak,
@@ -48,7 +49,16 @@ function emit() {
 function persist() {
   if (!db) return
   try {
-    localStorage.setItem(KEY, JSON.stringify(db))
+    // 安全策略：密钥绝不落盘。运行时只保留句柄，写盘时把任何非句柄的明文清空。
+    const ai = db.settings.ai
+    const safe = {
+      ...db,
+      settings: {
+        ...db.settings,
+        ai: { ...ai, apiKey: vault.isHandle(ai.apiKey) ? ai.apiKey : '' },
+      },
+    }
+    localStorage.setItem(KEY, JSON.stringify(safe))
   } catch {
     // 隐私模式或 file:// 下 localStorage 可能不可写：保留内存态，不阻断训练
   }
@@ -102,6 +112,13 @@ function load(): DB {
       const parsed = JSON.parse(raw) as DB
       if (parsed && parsed.version === 1) {
         db = normalizeDB(parsed)
+        // 升级迁移：旧版明文密钥搬进内存保险库，并立即覆写磁盘抹掉明文
+        const legacy = parsed.settings?.ai?.apiKey
+        if (typeof legacy === 'string' && legacy.length > 0 && !vault.isHandle(legacy)) {
+          vault.set('ai', legacy)
+          db.settings.ai.apiKey = vault.handleFor('ai')
+          persist()
+        }
         return db
       }
     }
@@ -314,10 +331,16 @@ export function getWeekly(now = new Date()): WeeklyReport {
 
 export function updateSettings(patch: Partial<Settings>): Promise<void> {
   const data = load()
+  const ai = { ...data.settings.ai, ...(patch.ai ?? {}) }
+  // 任何传入的明文密钥都先送进内存保险库，运行时只留句柄
+  if (typeof ai.apiKey === 'string' && ai.apiKey.length > 0 && !vault.isHandle(ai.apiKey)) {
+    vault.set('ai', ai.apiKey)
+    ai.apiKey = vault.handleFor('ai')
+  }
   data.settings = {
     ...data.settings,
     ...patch,
-    ai: { ...data.settings.ai, ...(patch.ai ?? {}) },
+    ai,
   }
   persist()
   emit()
@@ -381,6 +404,8 @@ export async function importJSON(raw: string): Promise<void> {
     throw new Error('不是有效的文几备份文件')
   }
   db = normalizeDB(parsed)
+  // 备份文件不允许夹带密钥：一律丢弃，需用户在设置页重新输入
+  db.settings.ai.apiKey = ''
   // 备份的 desiredRetention 可能与当前调度器不同：导入后必须重建 FSRS，
   // 否则界面显示新参数、实际间隔仍按旧参数计算（与 initEngine/updateSettings 对齐）。
   await initScheduler(db.settings.desiredRetention)
