@@ -13,6 +13,8 @@ import Classical from './pages/Classical'
 import Writing from './pages/Writing'
 import Appreciation from './pages/Appreciation'
 import Syntax from './pages/Syntax'
+import Variant from './pages/Variant'
+import Exam from './pages/Exam'
 import Library from './pages/Library'
 import Dashboard from './pages/Dashboard'
 import Settings from './pages/Settings'
@@ -108,6 +110,10 @@ export default function App() {
         return <Appreciation />
       case '/drills/syntax':
         return <Syntax />
+      case '/drills/variant':
+        return <Variant />
+      case '/exam':
+        return <Exam />
       case '/library':
         return <Library />
       case '/me':

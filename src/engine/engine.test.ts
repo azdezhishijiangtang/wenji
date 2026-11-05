@@ -1,9 +1,13 @@
 import { beforeAll, describe, expect, it } from 'vitest'
-import type { FsrsCard, Item, ModelDef, ModelRecord, Review, Settings } from './types'
+import type { ExamRecord, FsrsCard, Item, ModelDef, ModelRecord, Review, Settings } from './types'
 import { ERROR_TAGS } from './types'
 import { applyMastery, emptyModel } from './mastery'
 import { buildQueue } from './queue'
+import { buildExamPool } from './exam'
 import { initScheduler, newCard, reviewCard } from './fsrs'
+import { lintVariantDraft, makeVariantItem, type VariantDraft } from './variant'
+import { MODELS as MODELS_LIST } from '../content/models'
+import { kindOf } from './practice'
 import { biasOf, calibrationBins, computeStreak, errorFingerprint, weeklyReport } from './analytics'
 import { addDays, dayKey, startOfDay } from './util'
 
@@ -206,6 +210,24 @@ describe('M1 队列：上限、整组、达标即停、夜间', () => {
     expect(gb?.items.length).toBe(10)
   })
 
+  it('放不下的整组计入 deferred_groups/deferred_items，静默顺延可被统计', () => {
+    const items: Item[] = [
+      makeItem('da0', 'ga', 0, { due: addDays(NOW, -5) }),
+      makeItem('da1', 'ga', 1, { due: addDays(NOW, -5) }),
+      makeItem('db0', 'gb', 0, { due: addDays(NOW, -1) }),
+      makeItem('db1', 'gb', 1, { due: addDays(NOW, -1) }),
+    ]
+    const q = buildQueue({
+      items,
+      reviews: [],
+      models: { 'test.model': makeModel('test.model') },
+      settings: { ...SETTINGS, dailyCap: 3 },
+      now: NOW,
+    })
+    expect(q.deferred_groups).toBe(1)
+    expect(q.deferred_items).toBe(2)
+  })
+
   it('新卡按整组放行，不超新卡上限', () => {
     const items: Item[] = []
     for (let g = 0; g < 3; g++) {
@@ -284,6 +306,45 @@ describe('M1 队列：上限、整组、达标即停、夜间', () => {
       now: NOW,
     })
     expect(q.total_due).toBe(0)
+  })
+})
+
+describe('变式：质检与入库', () => {
+  const good: VariantDraft = {
+    model_tag: 'test.model',
+    question: '下列哪一句在“范围”这个维度上偏了？',
+    options: [
+      { text: '甲（原文）', is_correct: true, explain: '与原文范围一致。' },
+      { text: '乙（扩大）', is_correct: false, explain: '把“多数”换成了“全部”，范围扩大。' },
+      { text: '丙（缩小）', is_correct: false, explain: '把“多数”换成了“某几个”，范围缩小。' },
+      { text: '丁（无关）', is_correct: false, explain: '偷换了话题。' },
+    ],
+    insight: '考“范围扩大/缩小”这条要点',
+  }
+
+  it('合法草稿通过质检', () => {
+    expect(lintVariantDraft(good)).toBeNull()
+  })
+
+  it('候选不唯一 / 无正确项 / 多正确项 / 题干自曝，全部拦下', () => {
+    const dup = { ...good, options: good.options.map((o) => ({ ...o, text: '同样的话' })) }
+    expect(lintVariantDraft(dup)).toContain('重复')
+    const none = { ...good, options: good.options.map((o) => ({ ...o, is_correct: false })) }
+    expect(lintVariantDraft(none)).toContain('恰好一个')
+    const many = { ...good, options: good.options.map((o, i) => ({ ...o, is_correct: i < 2 })) }
+    expect(lintVariantDraft(many)).toContain('恰好一个')
+    const leak = { ...good, question: '正确答案是下面哪一项？' }
+    expect(lintVariantDraft(leak)).toContain('自曝')
+  })
+
+  it('入库条目挂变式组、variant_level=2，kindOf 归入 variant', () => {
+    const model = MODELS_LIST[0]
+    const item = makeVariantItem(good, model)
+    expect(item.group_id.startsWith(`variant:${good.model_tag}:`)).toBe(true)
+    expect(item.variant_level).toBe(2)
+    expect(item.item_type).toBe('model_variant')
+    expect(kindOf(item)).toBe('variant')
+    expect(item.content.options).toHaveLength(4)
   })
 })
 
@@ -520,5 +581,71 @@ describe('引擎唯一写入口（假 localStorage 端到端）', () => {
       NOW,
     )
     expect(out1.next_due).not.toBe(out2.next_due)
+  })
+
+  it('组卷：池子只含已学条目，同日种子下两次抽卷一致', () => {
+    const db = store.getDB()
+    // 手动把 8 条不同条目标记为已学（有 FSRS 卡）
+    const victims = Object.values(db.items).filter((i) => !i.fsrs).slice(0, 8)
+    for (const v of victims) {
+      v.fsrs = fsrsDue(addDays(NOW, -1))
+    }
+    const pool = buildExamPool(db, NOW, 6)
+    expect(pool.items.length).toBeLessThanOrEqual(6)
+    expect(pool.items.every((i) => i.fsrs)).toBe(true)
+    expect(pool.poolSize).toBeGreaterThanOrEqual(8)
+    const again = buildExamPool(db, NOW, 6)
+    expect(again.items.map((i) => i.item_id)).toEqual(pool.items.map((i) => i.item_id))
+  })
+
+  it('组卷生命周期：开始 → 交卷出分 → 不能重复交/再作废', () => {
+    const db = store.getDB()
+    const victims = Object.values(db.items).filter((i) => i.fsrs).slice(0, 3)
+    // 用一个晚于所有历史作答的时刻开卷，隔离前面测试留下的 review
+    const examNow = addDays(NOW, 10)
+    const started = store.startExam(victims.map((v) => v.item_id), examNow)
+    expect(started).not.toBe('active-exists')
+    const exam = started as ExamRecord
+    expect(store.activeExam()?.id).toBe(exam.id)
+    // 再开一张会被拒绝
+    expect(store.startExam(victims.map((v) => v.item_id), examNow)).toBe('active-exists')
+    // 模拟答对其中一条
+    store.submitReview(
+      { itemId: victims[0].item_id, correct: true, confidence: 70, timeSpent: 8 },
+      new Date(examNow.getTime() + 60000),
+    )
+    const done = store.finishExam(exam.id, new Date(examNow.getTime() + 120000))
+    expect(done?.score).toEqual({ answered: 1, correct: 1 })
+    expect(store.activeExam()).toBeNull()
+    expect(store.finishExam(exam.id)).toBeNull()
+    expect(store.discardExam(exam.id)).toBe(false)
+  })
+
+  it('积累卡：日课建卡、当天不回看、到期出现、转化后顺延', () => {
+    store.saveDaily({
+      date: dayKey(NOW),
+      word_id: 'w1',
+      imagery_id: 'i1',
+      technique_id: 't1',
+      note: '“隐约”和“仿佛”都带不确定，但前者偏向视觉模糊，后者偏向比喻性类比。',
+    })
+    const db1 = store.getDB()
+    const card = db1.accumulations.find((a) => a.source_date === dayKey(NOW))
+    expect(card).toBeTruthy()
+    expect(card?.fsrs?.dueAt).toBeTruthy()
+    // 建卡即错开今天：due 至少在 2 天后，今天不该出现在回看队列
+    expect(new Date(card!.fsrs!.dueAt).getTime()).toBeGreaterThan(addDays(NOW, 2).getTime())
+    expect(store.dueAccumulations(NOW).some((a) => a.id === card?.id)).toBe(false)
+    // 到期次日打开：卡进入回看队列
+    const later = new Date(card!.fsrs!.dueAt)
+    later.setTime(later.getTime() + 86400000)
+    expect(store.dueAccumulations(later).some((a) => a.id === card!.id)).toBe(true)
+    // 转化一次：history+1，good 评分把到期日推向更远
+    const dueBefore = card!.fsrs!.dueAt
+    expect(store.reviewAccumulation(card!.id, '变体', '换成反例：绝对确定的事就不适用“隐约”。', later)).toBe(true)
+    const after = store.getDB().accumulations.find((a) => a.id === card!.id)!
+    expect(after.history).toHaveLength(1)
+    expect(after.history[0].mode).toBe('变体')
+    expect(new Date(after.fsrs!.dueAt).getTime()).toBeGreaterThan(new Date(dueBefore).getTime())
   })
 })

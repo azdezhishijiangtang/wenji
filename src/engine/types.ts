@@ -13,6 +13,7 @@ export type ItemType =
   | 'technique_card'
   | 'syntax_chunk'
   | 'model_probe'
+  | 'model_variant'
 
 export type Source = 'chinese_site' | 'manual'
 
@@ -226,6 +227,8 @@ export interface DB {
   mastery_events: MasteryEvent[]
   daily: DailyEntry[]
   coach_reports: CoachReport[]
+  exams: ExamRecord[]
+  accumulations: AccumulationCard[]
   last_group: string | null
 }
 
@@ -252,6 +255,9 @@ export interface Queue {
   completed_today: number
   planned: number
   skipped_variants: number
+  /** 因整组放行被顺延到下一次的到期题组数 / 条目数 */
+  deferred_groups: number
+  deferred_items: number
 }
 
 export interface ReviewResult {
@@ -261,6 +267,38 @@ export interface ReviewResult {
   level_after: number
   streak: number
   bias: number | null
+}
+
+/** 限时抽样卷：抽已学条目限时覆盖，作答仍走正常 submitReview 链路。 */
+export interface ExamRecord {
+  id: string
+  created_at: string
+  item_ids: string[]
+  started_at: string
+  finished_at: string | null
+  /** 交卷快照：answered = started_at 后有作答记录的条目数 */
+  score: { answered: number; correct: number } | null
+}
+
+/**
+ * 积累簿转化卡：日课写下的那句话的快照，按 FSRS 回看。
+ * 回看动作是“转化”：用旧句造新变体 / 压缩一半 / 换成反例。
+ */
+export interface AccumulationHistory {
+  at: string
+  mode: '变体' | '压缩' | '反例'
+  text: string
+}
+
+export interface AccumulationCard {
+  id: string
+  /** 来源日课日期 */
+  source_date: string
+  /** 首次写入时的句子快照（之后编辑日课不影响此卡） */
+  text: string
+  created_at: string
+  fsrs: FsrsCard | null
+  history: AccumulationHistory[]
 }
 
 export interface CalibrationBin {

@@ -61,6 +61,13 @@ export const DRILLS: {
     ability: '语义边界与篇章结构',
     tagline: '先选，再写一句为什么；先排序，再说出连接词的走向。',
   },
+  {
+    kind: 'variant',
+    path: '/drills/variant',
+    name: '模型变式 · 工坊',
+    ability: '换壳不换核',
+    tagline: 'AI 按模型定义生成新壳，你确认后入库；同一模型见多了壳，才算真认得。',
+  },
 ]
 
 const KIND_LABEL: Record<DrillKind, string> = {
@@ -71,6 +78,7 @@ const KIND_LABEL: Record<DrillKind, string> = {
   appreciation: '感受',
   syntax: '句法',
   foundation: '基本功',
+  variant: '变式',
 }
 
 export function kindOf(item: Item): DrillKind | null {
@@ -94,6 +102,8 @@ export function kindOf(item: Item): DrillKind | null {
     case 'syntax_chunk':
     case 'punctuation':
       return 'syntax'
+    case 'model_variant':
+      return 'variant'
     default:
       return null
   }
@@ -110,6 +120,7 @@ export function groupKind(groupId: string): DrillKind | null {
   if (groupId.startsWith('appreciation.')) return 'appreciation'
   if (groupId === 'syntax.main' || groupId === 'syntax.punct') return 'syntax'
   if (groupId.startsWith('foundation.')) return 'foundation'
+  if (groupId.startsWith('variant:')) return 'variant'
   return null
 }
 

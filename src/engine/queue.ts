@@ -88,16 +88,25 @@ export function buildQueue(input: QueueInput): Queue {
   }
   const dueItems: Item[] = []
   let dueCount = 0
+  let deferredGroups = 0
+  let deferredItems = 0
   for (const list of dueByGroupRaw.values()) {
     const room = settings.dailyCap - dueCount
-    if (room <= 0) break
+    if (room <= 0) {
+      deferredGroups += 1
+      deferredItems += list.length
+      continue
+    }
     if (list.length <= room) {
       dueItems.push(...list)
       dueCount += list.length
     } else if (list.length > settings.dailyCap) {
       dueItems.push(...list.slice(0, room))
       dueCount = settings.dailyCap
-      break
+      deferredItems += list.length - room
+    } else {
+      deferredGroups += 1
+      deferredItems += list.length
     }
   }
   const freshBudget = Math.max(0, settings.dailyCap - dueItems.length)
@@ -164,5 +173,7 @@ export function buildQueue(input: QueueInput): Queue {
     completed_today: reviewedToday.size,
     planned: night ? 0 : dueItems.length + fresh.reduce((n, g) => n + g.items.length, 0),
     skipped_variants: skipped.length,
+    deferred_groups: night ? 0 : deferredGroups,
+    deferred_items: night ? 0 : deferredItems,
   }
 }

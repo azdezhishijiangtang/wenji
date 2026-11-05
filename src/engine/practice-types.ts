@@ -8,6 +8,7 @@ export type DrillKind =
   | 'appreciation'
   | 'syntax'
   | 'foundation'
+  | 'variant'
 
 export interface GroupView {
   id: string

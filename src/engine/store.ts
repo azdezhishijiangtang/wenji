@@ -1,9 +1,11 @@
 import type {
+  AccumulationCard,
   CalibrationBin,
   CoachReport,
   DailyEntry,
   DB,
   ErrorFingerprint,
+  ExamRecord,
   Item,
   ModelRecord,
   ModelStat,
@@ -19,7 +21,7 @@ import { buildQueue } from './queue'
 import { applyMastery, emptyModel } from './mastery'
 import { initScheduler, reviewCard } from './fsrs'
 import { biasOf, calibrationBins, calibratedModels, computeStreak, errorFingerprint, modelStats, weeklyReport } from './analytics'
-import { addDays, daysAgoIso, nowIso, startOfDay, uid } from './util'
+import { addDays, dayKey, daysAgoIso, nowIso, startOfDay, uid } from './util'
 import { buildSeedDB, DEFAULT_SETTINGS, LOCAL_USER_ID, SEED_VERSION } from '../content/seed'
 import { MODEL_MAP } from '../content/models'
 import {
@@ -83,6 +85,8 @@ function normalizeDB(input: DB): DB {
     mastery_events: Array.isArray(input.mastery_events) ? input.mastery_events : [],
     daily: Array.isArray(input.daily) ? input.daily : [],
     coach_reports: Array.isArray(input.coach_reports) ? input.coach_reports : [],
+    exams: Array.isArray(input.exams) ? input.exams : [],
+    accumulations: Array.isArray(input.accumulations) ? input.accumulations : [],
     last_group: input.last_group ?? null,
   }
   // 内容更新后，新条目补进来；旧条目的学习状态保留
@@ -418,6 +422,104 @@ export function userName(): string {
   return load().user.name || '你'
 }
 
+/** 变式入库：AI 生成 + 人工确认后的条目才允许走这里。 */
+export function addVariantItems(items: Item[]): number {
+  const data = load()
+  let added = 0
+  for (const item of items) {
+    if (data.items[item.item_id]) continue
+    data.items[item.item_id] = item
+    added += 1
+  }
+  if (added) {
+    persist()
+    emit()
+  }
+  return added
+}
+
+/* ================= 限时抽样卷 ================= */
+
+export function startExam(itemIds: string[], now = new Date()): ExamRecord | 'active-exists' {
+  const data = load()
+  if (data.exams.some((e) => e.finished_at == null)) return 'active-exists'
+  const exam: ExamRecord = {
+    id: uid('ex'),
+    created_at: now.toISOString(),
+    item_ids: itemIds,
+    started_at: now.toISOString(),
+    finished_at: null,
+    score: null,
+  }
+  data.exams.push(exam)
+  data.exams = data.exams.slice(-20)
+  persist()
+  emit()
+  return exam
+}
+
+export function activeExam(): ExamRecord | null {
+  return load().exams.find((e) => e.finished_at == null) ?? null
+}
+
+export function discardExam(id: string): boolean {
+  const data = load()
+  const exam = data.exams.find((e) => e.id === id)
+  if (!exam || exam.finished_at) return false
+  exam.finished_at = nowIso()
+  exam.score = { answered: 0, correct: 0 }
+  persist()
+  emit()
+  return true
+}
+
+export function finishExam(id: string, now = new Date()): ExamRecord | null {
+  const data = load()
+  const exam = data.exams.find((e) => e.id === id)
+  if (!exam || exam.finished_at) return null
+  // 同一条目多次作答取最后一次；只认开卷之后的作答
+  const relevant = data.reviews
+    .filter((r) => exam.item_ids.includes(r.item_id) && r.timestamp >= exam.started_at)
+    .sort((a, b) => a.timestamp.localeCompare(b.timestamp))
+  const perItem = new Map<string, boolean>()
+  for (const r of relevant) perItem.set(r.item_id, r.correct)
+  exam.score = {
+    answered: perItem.size,
+    correct: [...perItem.values()].filter(Boolean).length,
+  }
+  exam.finished_at = now.toISOString()
+  persist()
+  emit()
+  return exam
+}
+
+/* ================= 积累簿转化卡 ================= */
+
+export function dueAccumulations(now = new Date()): AccumulationCard[] {
+  const key = dayKey(now)
+  return load().accumulations
+    .filter((a) => a.source_date !== key)
+    .filter((a) => !a.fsrs || new Date(a.fsrs.dueAt).getTime() <= now.getTime())
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
+}
+
+export function reviewAccumulation(
+  id: string,
+  mode: AccumulationCard['history'][number]['mode'],
+  text: string,
+  now = new Date(),
+): boolean {
+  const data = load()
+  const card = data.accumulations.find((a) => a.id === id)
+  const clean = text.trim()
+  if (!card || clean.length < 4) return false
+  card.history.push({ at: now.toISOString(), mode, text: clean })
+  card.fsrs = reviewCard(card.fsrs, 'good', now)
+  persist()
+  emit()
+  return true
+}
+
 export function userId(): string {
   return load().user.id || LOCAL_USER_ID
 }
@@ -482,6 +584,21 @@ export function saveDaily(input: SaveDailyInput): boolean {
       note,
       created_at: nowIso(),
     })
+  }
+  // 积累簿转化卡：当天首次写下句子时建卡（快照），约 3 天后进入回看队列。
+  // 之后编辑日课不影响此卡——转化的对象是“当时写下的那句话”。
+  if (!data.accumulations.some((a) => a.source_date === input.date)) {
+    const base = new Date()
+    const card: AccumulationCard = {
+      id: uid('acc'),
+      source_date: input.date,
+      text: note,
+      created_at: nowIso(),
+      // 用“3 天后的首次复习”初始化 FSRS，让转化回看天然错开今天
+      fsrs: reviewCard(null, 'hard', new Date(base.getTime() + 3 * 86400000)),
+      history: [],
+    }
+    data.accumulations.push(card)
   }
   persist()
   emit()

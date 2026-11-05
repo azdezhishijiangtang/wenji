@@ -326,6 +326,8 @@ export function buildSeedDB(): DB {
     mastery_events: [],
     daily: [],
     coach_reports: [],
+    exams: [],
+    accumulations: [],
     last_group: null,
   }
 }

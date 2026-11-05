@@ -271,3 +271,69 @@ export async function aiProbe(
   }
   return content.trim()
 }
+
+/** 变式生成的 AI 输出结构 */
+interface VariantRaw {
+  variants?: {
+    question?: unknown
+    options?: { text?: unknown; is_correct?: unknown; explain?: unknown }[]
+    insight?: unknown
+  }[]
+}
+
+function validateVariantRaw(raw: unknown): { question: string; options: { text: string; is_correct: boolean; explain: string }[]; insight: string }[] {
+  const o = raw as VariantRaw
+  if (!o || !Array.isArray(o.variants) || o.variants.length === 0) {
+    throw new Error('变式 JSON 缺少 variants')
+  }
+  return o.variants.map((v) => {
+    if (!v || typeof v.question !== 'string' || !Array.isArray(v.options)) {
+      throw new Error('变式题目结构不合法')
+    }
+    const options = v.options.map((opt) => ({
+      text: String(opt?.text ?? ''),
+      is_correct: opt?.is_correct === true,
+      explain: String(opt?.explain ?? ''),
+    }))
+    return {
+      question: v.question,
+      options,
+      insight: typeof v.insight === 'string' ? v.insight : '',
+    }
+  })
+}
+
+/**
+ * 变式生成：按模型定义出新壳。生成后仍需 lintVariantDraft 质检 + 人工确认，
+ * AI 只负责出题，不负责判定“入库”。
+ */
+export async function aiGenerateVariants(
+  ai: AISettings,
+  model: { tag: string; name: string; definition: string; keyPoints: string[]; commonErrors: string[] },
+  samples: { question: string }[],
+): Promise<{ question: string; options: { text: string; is_correct: boolean; explain: string }[]; insight: string }[]> {
+  const system =
+    '你是语文训练站的出题引擎。基于给定的“模型”（一个可迁移的语文判断模式）生成 3 道变式选择题：' +
+    '同一模型、不同的语言材料与语境（换壳不换核），不与给定示例重复。' +
+    '每道题 4 个选项，恰好 1 个正确；每个选项都给一句解析（正确项说为什么对，干扰项说在哪个维度偏了）。' +
+    '题干 15–120 字，不得出现“答案是/正确答案/应选”等自曝句式。' +
+    '只输出 JSON：{"variants":[{"question":"...","options":[{"text":"...","is_correct":true,"explain":"..."}],"insight":"这道题在考模型要点中的哪一条"}]}'
+  const user = JSON.stringify({
+    模型: { tag: model.tag, 名称: model.name, 定义: model.definition, 考查要点: model.keyPoints, 常见错误: model.commonErrors },
+    已有示例_禁止重复: samples,
+  })
+  let content: string
+  try {
+    content = await chat(ai, [
+      { role: 'system', content: system },
+      { role: 'user', content: user },
+    ], true)
+  } catch {
+    // 与写作诊断同策略：JSON 模式失败重试一次
+    content = await chat(ai, [
+      { role: 'system', content: system + ' 只输出 JSON，不要任何解释文字。' },
+      { role: 'user', content: user },
+    ], false)
+  }
+  return validateVariantRaw(parseJSONLoose(content))
+}

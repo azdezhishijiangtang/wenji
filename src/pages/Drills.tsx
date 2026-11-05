@@ -61,6 +61,16 @@ export default function Drills() {
       </div>
 
       <section className="section">
+        <h2 className="section-title">限时抽样卷</h2>
+        <p className="prose">
+          考试只是它们的抽样——那就定期抽一次样。从你已学过的条目里按六维配比抽一小卷，限时覆盖，交卷出分；作答仍走同一条引擎链路，掌握度与校准照常更新。
+        </p>
+        <button className="btn btn--primary" onClick={() => go('/exam')}>
+          组一张抽样卷
+        </button>
+      </section>
+
+      <section className="section">
         <h2 className="section-title">自选也不会绕过引擎</h2>
         <p className="prose">
           所有作答仍写入同一份 reviews，推进 FSRS 与掌握度；同一模型连对 3 道不同条目才升档，答错立即降档。自选只是让你决定“现在练什么”，不改变“什么算学会”。

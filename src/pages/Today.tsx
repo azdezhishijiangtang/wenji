@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import {
+  dueAccumulations,
   getCalibration,
   getDaily,
   getDailyStreak,
   getQueue,
   getTodayStats,
   pendingErrorTags,
+  reviewAccumulation,
   setErrorTag,
 } from '../engine/store'
 import { DRILLS, allGroups, kindLabel, kindOf, setActiveGroup, todayDoneFor } from '../engine/practice'
@@ -31,6 +33,9 @@ export default function Today() {
   const foundationDone = todayDoneFor(db, 'foundation', now)
   const foundationTotal = foundationGroups.reduce((n, g) => n + g.items.length, 0)
   const [toast, setToast] = useState('')
+  const accCard = dueAccumulations(now)[0]
+  const [accMode, setAccMode] = useState<'变体' | '压缩' | '反例'>('变体')
+  const [accText, setAccText] = useState('')
 
   const groups = [...queue.due, ...queue.fresh]
   const mastered = Object.values(db.models).filter((m) => m.mastery_level >= 3).length
@@ -161,6 +166,12 @@ export default function Today() {
               {queue.total_fresh > 0 ? `新卡 ${queue.total_fresh}` : '无新卡'}
             </span>
           </div>
+          {queue.deferred_groups > 0 && (
+            <p className="muted">
+              另有 {queue.deferred_groups} 个题组（共 {queue.deferred_items} 条到期内容）因整组放行
+              顺延：内容不会丢，装得下整组时会优先出现。
+            </p>
+          )}
           <div className="queue">
             {groups.map((g) => {
               const kind = kindOf(g.items[0])
@@ -195,6 +206,53 @@ export default function Today() {
             </p>
           )}
         </>
+      )}
+
+      {accCard && (
+        <section className="section">
+          <div className="section-head">
+            <h2>积累回看 · 转化</h2>
+            <span className="muted">
+              {accCard.source_date} 写下的句子 · 做过的转化 {accCard.history.length} 次
+            </span>
+          </div>
+          <div className="pending">
+            <p>「{accCard.text}」</p>
+            <div className="chips" role="radiogroup" aria-label="转化方式">
+              {(['变体', '压缩', '反例'] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  className={`chip ${accMode === m ? 'chip--active' : ''}`}
+                  aria-pressed={accMode === m}
+                  onClick={() => setAccMode(m)}
+                >
+                  <span>{m === '变体' ? '造个新变体' : m === '压缩' ? '压到一半' : '换成反例'}</span>
+                </button>
+              ))}
+            </div>
+            <textarea
+              className="input"
+              rows={2}
+              placeholder={accMode === '变体' ? '换个语境/句式，内核不变。' : accMode === '压缩' ? '压到一半长度，意思不丢。' : '写一句它管不了的反例，划出边界。'}
+              value={accText}
+              onChange={(e) => setAccText(e.target.value)}
+            />
+            <button
+              className="btn btn--primary"
+              disabled={accText.trim().length < 4}
+              onClick={() => {
+                if (reviewAccumulation(accCard.id, accMode, accText)) {
+                  setAccText('')
+                  setToast('已记下。这张卡隔几天会回来。')
+                  window.setTimeout(() => setToast(''), 4000)
+                }
+              }}
+            >
+              记下，下次再来
+            </button>
+          </div>
+        </section>
       )}
 
       {pending.length > 0 && (
