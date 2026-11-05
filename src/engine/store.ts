@@ -371,12 +371,15 @@ export function exportJSON(): string {
   return JSON.stringify(copy, null, 2)
 }
 
-export function importJSON(raw: string): void {
+export async function importJSON(raw: string): Promise<void> {
   const parsed = JSON.parse(raw) as DB
   if (!parsed || parsed.version !== 1 || !parsed.items || !parsed.models) {
     throw new Error('不是有效的文几备份文件')
   }
   db = normalizeDB(parsed)
+  // 备份的 desiredRetention 可能与当前调度器不同：导入后必须重建 FSRS，
+  // 否则界面显示新参数、实际间隔仍按旧参数计算（与 initEngine/updateSettings 对齐）。
+  await initScheduler(db.settings.desiredRetention)
   persist()
   emit()
 }
@@ -405,7 +408,9 @@ export function deleteEverything(): void {
   } catch {
     // ignore
   }
-  persist()
+  // 不 persist：本函数的语义是“删除本机全部数据”，persist 会立刻把种子库
+  // 写回存储，让删除变成空操作（与 resetAll 无异）。内存里保留种子库只为
+  // 页面不崩；下次刷新 load() 找不到存档，会重新落盘一份全新出厂状态。
   emit()
 }
 

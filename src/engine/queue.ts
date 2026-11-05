@@ -76,7 +76,30 @@ export function buildQueue(input: QueueInput): Queue {
       return Number(a.content.order ?? 0) - Number(b.content.order ?? 0)
     })
 
-  const dueItems = dueAll.slice(0, settings.dailyCap)
+  // 到期队列的组感知装入：dailyCap 仍是硬上限，但正常大小的题组
+  // 不再被截断拆碎（一篇挖词只推一半空位会破坏语境）——
+  // 装得下整组就放，放不下就整组跳过；唯一例外是组本身比 dailyCap
+  // 还大，此时截断该组，否则它会永远卡在队列外。
+  const dueByGroupRaw = new Map<string, Item[]>()
+  for (const item of dueAll) {
+    const list = dueByGroupRaw.get(item.group_id)
+    if (list) list.push(item)
+    else dueByGroupRaw.set(item.group_id, [item])
+  }
+  const dueItems: Item[] = []
+  let dueCount = 0
+  for (const list of dueByGroupRaw.values()) {
+    const room = settings.dailyCap - dueCount
+    if (room <= 0) break
+    if (list.length <= room) {
+      dueItems.push(...list)
+      dueCount += list.length
+    } else if (list.length > settings.dailyCap) {
+      dueItems.push(...list.slice(0, room))
+      dueCount = settings.dailyCap
+      break
+    }
+  }
   const freshBudget = Math.max(0, settings.dailyCap - dueItems.length)
   // 新卡既要受“每日新卡上限”约束，也不能把总量顶过 dailyCap。
   const newBudget = Math.min(Math.max(0, settings.newItemCap - newToday), freshBudget)

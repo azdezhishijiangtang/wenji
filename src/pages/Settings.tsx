@@ -80,7 +80,7 @@ export default function Settings() {
   async function doImport(file: File) {
     try {
       const text = await file.text()
-      importJSON(text)
+      await importJSON(text)
       const next = JSON.parse(text) as { settings?: { newItemCap?: number; dailyCap?: number } }
       if (next.settings?.newItemCap != null) setNewCap(next.settings.newItemCap)
       if (next.settings?.dailyCap != null) setDailyCap(next.settings.dailyCap)

@@ -166,6 +166,46 @@ describe('M1 队列：上限、整组、达标即停、夜间', () => {
     expect(q.due[0].items[0].content.order).toBe(6)
   })
 
+  it('到期题组装得下就整组放行；放不下且组不超上限时整组跳过，不拆组', () => {
+    // 组 A 逾期 5 天排前，组 B 逾期 1 天排后；cap=3 装不下 A+B（4 条）
+    const items: Item[] = [
+      makeItem('da0', 'ga', 0, { due: addDays(NOW, -5) }),
+      makeItem('da1', 'ga', 1, { due: addDays(NOW, -5) }),
+      makeItem('db0', 'gb', 0, { due: addDays(NOW, -1) }),
+      makeItem('db1', 'gb', 1, { due: addDays(NOW, -1) }),
+    ]
+    const q = buildQueue({
+      items,
+      reviews: [],
+      models: { 'test.model': makeModel('test.model') },
+      settings: { ...SETTINGS, dailyCap: 3 },
+      now: NOW,
+    })
+    // 旧行为会把 B 拆出 1 条凑满 cap=3；新行为保 B 完整，留到下次到期
+    expect(q.total_due).toBe(2)
+    expect(q.due).toHaveLength(1)
+    expect(q.due[0].items.map((i) => i.item_id)).toEqual(['da0', 'da1'])
+  })
+
+  it('装满后遇到超过剩余空间的大组：组本身超 dailyCap 才截断，否则整组跳过', () => {
+    // A 30 条整组装入后剩 10 空间；B 50 条超 dailyCap=40 → 截断 10 条
+    const items: Item[] = []
+    for (let i = 0; i < 30; i++) items.push(makeItem(`a${i}`, 'ga', i, { due: addDays(NOW, -3) }))
+    for (let i = 0; i < 50; i++) items.push(makeItem(`b${i}`, 'gb', i, { due: addDays(NOW, -1) }))
+    const q = buildQueue({
+      items,
+      reviews: [],
+      models: { 'test.model': makeModel('test.model') },
+      settings: { ...SETTINGS, dailyCap: 40 },
+      now: NOW,
+    })
+    expect(q.total_due).toBe(40)
+    const ga = q.due.find((g) => g.items[0].item_id.startsWith('a'))
+    const gb = q.due.find((g) => g.items[0].item_id.startsWith('b'))
+    expect(ga?.items.length).toBe(30)
+    expect(gb?.items.length).toBe(10)
+  })
+
   it('新卡按整组放行，不超新卡上限', () => {
     const items: Item[] = []
     for (let g = 0; g < 3; g++) {
@@ -446,5 +486,39 @@ describe('引擎唯一写入口（假 localStorage 端到端）', () => {
     )
     expect(out.next_due).toBeTruthy()
     expect(store.getDB().reviews.length).toBe(before + 1)
+  })
+
+  it('删除本机数据后 localStorage 真正清空，不被种子库写回', () => {
+    // 前面的测试已触发过 persist，存档应当存在
+    expect(localStorage.getItem('wenyi.db.v1')).not.toBeNull()
+    store.deleteEverything()
+    // 旧行为：removeItem 后 persist 又把种子库写回，删除变成空操作
+    expect(localStorage.getItem('wenyi.db.v1')).toBeNull()
+    // 内存里仍有种子库，页面不崩；刷新后 load() 重新出厂
+    expect(Object.keys(store.getDB().items).length).toBe(266)
+  })
+
+  it('导入带不同 desiredRetention 的备份后，调度器按备份参数工作', async () => {
+    const backup = JSON.parse(store.exportJSON()) as {
+      settings: { desiredRetention: number }
+    }
+    backup.settings.desiredRetention = 0.6
+    await store.importJSON(JSON.stringify(backup))
+    expect(store.getDB().settings.desiredRetention).toBe(0.6)
+
+    // 行为级验证：同输入下 0.6 与 0.9 的首次复习间隔不同
+    // （enableFuzz 对同卡是确定性的，已用探针验证）
+    const fresh1 = Object.values(store.getDB().items).find((i) => !i.fsrs)!
+    const out1 = store.submitReview(
+      { itemId: fresh1.item_id, correct: true, confidence: 70, timeSpent: 12 },
+      NOW,
+    )
+    await store.updateSettings({ desiredRetention: 0.9 })
+    const fresh2 = Object.values(store.getDB().items).find((i) => !i.fsrs)!
+    const out2 = store.submitReview(
+      { itemId: fresh2.item_id, correct: true, confidence: 70, timeSpent: 12 },
+      NOW,
+    )
+    expect(out1.next_due).not.toBe(out2.next_due)
   })
 })
