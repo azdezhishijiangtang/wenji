@@ -1,3 +1,4 @@
+import { caps, legacyFetch, safeSession } from './compat'
 /**
  * byok-vault.ts — 纯前端 BYOK 密钥保险库（零持久化优先）
  * =====================================================================
@@ -10,7 +11,7 @@
  *     错误堆栈、备份文件、云同步载荷或任何可序列化对象。
  *  2. 【可选加密暂存】只有用户主动设置解锁口令并显式调用 persist() 才启用：
  *     PBKDF2-SHA256(310000 轮) 派生 + AES-256-GCM 加密，密文仅写入
- *     sessionStorage（标签页关闭即清）并带过期时间。口令与明文永不落盘，
+ *     safeSession（标签页关闭即清）并带过期时间。口令与明文永不落盘，
  *     派生出的 CryptoKey 设为不可导出（extractable: false）。
  *  3. 【自动锁定】页面隐藏超时、空闲超时、pagehide / freeze 时擦除内存密钥。
  *  4. 【只读指纹】对外只暴露 SHA-256 前 8 位用于展示，不暴露明文。
@@ -161,7 +162,7 @@ function installGuards(): void {
       touch()
     }
   })
-  // 离开页面：擦除内存，但保留 sessionStorage 密文（刷新后可凭口令解锁）
+  // 离开页面：擦除内存，但保留 safeSession 密文（刷新后可凭口令解锁）
   window.addEventListener('pagehide', () => lock())
   window.addEventListener('freeze', () => lock())
 }
@@ -175,7 +176,7 @@ export function set(slot: string, apiKey: string): void {
   const trimmed = (apiKey || '').trim()
   if (!trimmed) throw new Error('密钥不能为空')
   // 内存状态一旦变化，旧的加密暂存即作废，避免解锁出过期密钥
-  if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(STORAGE_KEY)
+  if (typeof safeSession !== 'undefined') safeSession.removeItem(STORAGE_KEY)
   memory.set(slot || DEFAULT_SLOT, trimmed)
   installGuards()
   touch()
@@ -197,12 +198,12 @@ export function has(slot: string = DEFAULT_SLOT): boolean {
 }
 
 export function clearSlot(slot: string): void {
-  if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(STORAGE_KEY)
+  if (typeof safeSession !== 'undefined') safeSession.removeItem(STORAGE_KEY)
   memory.delete(slotOf(slot))
   emit()
 }
 
-/** 锁定：清空内存中的所有明文，保留 sessionStorage 密文。 */
+/** 锁定：清空内存中的所有明文，保留 safeSession 密文。 */
 export function lock(): void {
   clearTimers()
   memory = new Map<string, string>()
@@ -213,33 +214,33 @@ export function lock(): void {
 export function purge(): void {
   clearTimers()
   memory = new Map<string, string>()
-  if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(STORAGE_KEY)
+  if (typeof safeSession !== 'undefined') safeSession.removeItem(STORAGE_KEY)
   emit()
 }
 
 /** 是否存在可凭口令解锁的加密暂存（会顺手清掉过期项）。 */
 export function hasPersisted(): boolean {
-  if (typeof sessionStorage === 'undefined') return false
-  const raw = sessionStorage.getItem(STORAGE_KEY)
+  if (typeof safeSession === 'undefined') return false
+  const raw = safeSession.getItem(STORAGE_KEY)
   if (!raw) return false
   try {
     const blob = JSON.parse(raw) as StoredBlob
     if (!blob.exp || Date.now() > blob.exp) {
-      sessionStorage.removeItem(STORAGE_KEY)
+      safeSession.removeItem(STORAGE_KEY)
       return false
     }
     return true
   } catch {
-    sessionStorage.removeItem(STORAGE_KEY)
+    safeSession.removeItem(STORAGE_KEY)
     return false
   }
 }
 
-/** 用口令把当前内存中的全部槽位加密暂存到 sessionStorage。 */
+/** 用口令把当前内存中的全部槽位加密暂存到 safeSession。 */
 export async function persist(passphrase: string, ttlMs: number = DEFAULT_TTL_MS): Promise<void> {
   if (!passphrase || passphrase.length < 8) throw new Error('解锁口令至少 8 位')
   if (memory.size === 0) throw new Error('当前没有已解锁的密钥，无法暂存')
-  if (typeof sessionStorage === 'undefined') throw new Error('当前环境不支持会话存储')
+  if (typeof safeSession === 'undefined') throw new Error('当前环境不支持会话存储')
 
   const salt = randomBytes(SALT_BYTES)
   const iv = randomBytes(IV_BYTES)
@@ -257,14 +258,17 @@ export async function persist(passphrase: string, ttlMs: number = DEFAULT_TTL_MS
     exp: Date.now() + ttlMs,
     slots: memory.size,
   }
-  sessionStorage.setItem(STORAGE_KEY, JSON.stringify(blob))
+  safeSession.setItem(STORAGE_KEY, JSON.stringify(blob))
+  if (!safeSession.getItem(STORAGE_KEY)) {
+    throw new Error('当前浏览器无法写入会话存储（常见于无痕/隐私模式），已跳过「会话内记住」；直接填写 API Key 仍可正常使用。')
+  }
   emit()
 }
 
 /** 用口令解密暂存并恢复到内存。口令错误 / 密文被篡改 / 已过期均返回 false。 */
 export async function unlock(passphrase: string): Promise<boolean> {
-  if (typeof sessionStorage === 'undefined' || !passphrase) return false
-  const raw = sessionStorage.getItem(STORAGE_KEY)
+  if (typeof safeSession === 'undefined' || !passphrase) return false
+  const raw = safeSession.getItem(STORAGE_KEY)
   if (!raw) return false
   let blob: StoredBlob
   try {
@@ -303,8 +307,8 @@ export async function unlock(passphrase: string): Promise<boolean> {
 
 export function state(): VaultState {
   let expiresAt: number | null = null
-  if (typeof sessionStorage !== 'undefined') {
-    const raw = sessionStorage.getItem(STORAGE_KEY)
+  if (typeof safeSession !== 'undefined') {
+    const raw = safeSession.getItem(STORAGE_KEY)
     if (raw) {
       try { expiresAt = (JSON.parse(raw) as StoredBlob).exp ?? null } catch { expiresAt = null }
     }
@@ -375,12 +379,30 @@ export function authHeaders(handleOrSlot: string = DEFAULT_SLOT): Record<string,
  * cache: no-store，避免密钥经 Referer / 缓存 / 第三方凭据链路外泄。
  */
 export function secureFetch(url: string, init: RequestInit = {}): Promise<Response> {
-  return fetch(assertSecureEndpoint(url), {
+  const target = assertSecureEndpoint(url)
+  const options: RequestInit = {
     ...init,
     credentials: 'omit',
     referrerPolicy: 'no-referrer',
     cache: 'no-store',
-  })
+  }
+  // 极老内核没有 fetch：用 XHR 兜底（body 为空，读取层自动走非流式解析）
+  if (!caps.fetch) return legacyFetch(target, options)
+  // 原生没有 AbortController 的内核不认识 signal，传入可能被拒绝；
+  // 剥离后额外用 Promise.race 提供超时保护，避免弱网下一直转圈。
+  if (!caps.abort) {
+    if (options.signal) delete options.signal
+    return Promise.race([
+      fetch(target, options),
+      new Promise<never>((_, reject) =>
+        window.setTimeout(
+          () => reject(new Error('连接超时（45 秒）：请检查接口地址与网络。')),
+          45000,
+        ),
+      ),
+    ])
+  }
+  return fetch(target, options)
 }
 
 /**

@@ -1,3 +1,4 @@
+import './compat'
 import type { AISettings } from './types'
 import { vault } from './byokVault'
 
