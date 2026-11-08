@@ -1,4 +1,4 @@
-import { caps, legacyFetch, safeSession } from './compat'
+import { caps, decodeUtf8, encodeUtf8, legacyFetch, safeSession } from './compat'
 /**
  * byok-vault.ts — 纯前端 BYOK 密钥保险库（零持久化优先）
  * =====================================================================
@@ -115,7 +115,7 @@ function randomBytes(n: number): Uint8Array<ArrayBuffer> {
 async function deriveKey(passphrase: string, salt: Uint8Array<ArrayBuffer>, iterations: number): Promise<CryptoKey> {
   const base = await subtle().importKey(
     'raw',
-    new TextEncoder().encode(passphrase),
+    encodeUtf8(passphrase),
     'PBKDF2',
     false,
     ['deriveKey'],
@@ -245,7 +245,7 @@ export async function persist(passphrase: string, ttlMs: number = DEFAULT_TTL_MS
   const salt = randomBytes(SALT_BYTES)
   const iv = randomBytes(IV_BYTES)
   const key = await deriveKey(passphrase, salt, PBKDF2_ITERATIONS)
-  const plain = new TextEncoder().encode(JSON.stringify(Object.fromEntries(memory)))
+  const plain = encodeUtf8(JSON.stringify(Object.fromEntries(memory)))
   const ct = await subtle().encrypt({ name: 'AES-GCM', iv }, key, plain)
 
   const blob: StoredBlob = {
@@ -288,7 +288,7 @@ export async function unlock(passphrase: string): Promise<boolean> {
       key,
       fromB64(blob.ct),
     )
-    const obj = JSON.parse(new TextDecoder().decode(pt)) as Record<string, unknown>
+    const obj = JSON.parse(decodeUtf8(new Uint8Array(pt))) as Record<string, unknown>
     const restored = new Map<string, string>()
     for (const [k, v] of Object.entries(obj)) {
       if (typeof v === 'string' && v.length > 0) restored.set(k, v)
@@ -331,7 +331,7 @@ export function subscribe(cb: (s: VaultState) => void): () => void {
 export async function fingerprint(slot: string = DEFAULT_SLOT): Promise<string | null> {
   const key = memory.get(slotOf(slot))
   if (!key) return null
-  const digest = await subtle().digest('SHA-256', new TextEncoder().encode(key))
+  const digest = await subtle().digest('SHA-256', encodeUtf8(key))
   return [...new Uint8Array(digest).slice(0, 4)]
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('')

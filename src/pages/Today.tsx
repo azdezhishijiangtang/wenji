@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   dueAccumulations,
   getCalibration,
@@ -21,6 +21,17 @@ function go(path: string) {
 }
 
 export default function Today() {
+
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => {
+    if (toastTimer.current) window.clearTimeout(toastTimer.current)
+  }, [])
+  /** 连续提示时重置计时，避免上一条的定时器提前清掉新提示 */
+  const showToast = (text: string) => {
+    setToast(text)
+    if (toastTimer.current) window.clearTimeout(toastTimer.current)
+    toastTimer.current = window.setTimeout(() => setToast(''), 4000)
+  }
   const db = useDB()
   const now = useNow(30000)
   const queue = getQueue(now)
@@ -50,11 +61,9 @@ export default function Today() {
 
   function tag(reviewId: string, value: (typeof ERROR_TAGS)[number]['value']) {
     if (setErrorTag(reviewId, value)) {
-      setToast('已记下。错因只用于找系统性弱点，不进入任何排行榜。')
-      window.setTimeout(() => setToast(''), 4000)
+      showToast('已记下。错因只用于找系统性弱点，不进入任何排行榜。')
     } else {
-      setToast('只能给今天之前的错题打标（冷静期规则）。')
-      window.setTimeout(() => setToast(''), 4000)
+      showToast('只能给今天之前的错题打标（冷静期规则）。')
     }
   }
 
@@ -244,8 +253,7 @@ export default function Today() {
               onClick={() => {
                 if (reviewAccumulation(accCard.id, accMode, accText)) {
                   setAccText('')
-                  setToast('已记下。这张卡隔几天会回来。')
-                  window.setTimeout(() => setToast(''), 4000)
+                  showToast('已记下。这张卡隔几天会回来。')
                 }
               }}
             >

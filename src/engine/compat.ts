@@ -33,6 +33,7 @@ export const caps = {
   abort: typeof AbortController !== 'undefined',
   readableStream: typeof ReadableStream !== 'undefined',
   textDecoder: typeof TextDecoder !== 'undefined',
+  textEncoder: typeof TextEncoder !== 'undefined',
   response: typeof Response !== 'undefined',
   subtle: !!g.crypto && !!g.crypto.subtle,
 }
@@ -105,6 +106,35 @@ export function decodeUtf8(bytes: Uint8Array): string {
     }
   }
   return out
+}
+
+/**
+ * TextEncoder 缺失时的 UTF-8 兜底编码（含 4 字节字符与代理对）。
+ * 保险库的口令派生、密文序列化、密钥指纹都依赖它，缺了会静默失败。
+ */
+export function encodeUtf8(text: string): Uint8Array<ArrayBuffer> {
+  if (caps.textEncoder) return new TextEncoder().encode(text)
+  const out: number[] = []
+  for (let i = 0; i < text.length; i += 1) {
+    let cp = text.charCodeAt(i)
+    if (cp >= 0xd800 && cp <= 0xdbff && i + 1 < text.length) {
+      const low = text.charCodeAt(i + 1)
+      if (low >= 0xdc00 && low <= 0xdfff) {
+        cp = 0x10000 + ((cp - 0xd800) << 10) + (low - 0xdc00)
+        i += 1
+      }
+    }
+    if (cp < 0x80) out.push(cp)
+    else if (cp < 0x800) out.push(0xc0 | (cp >> 6), 0x80 | (cp & 0x3f))
+    else if (cp < 0x10000) out.push(0xe0 | (cp >> 12), 0x80 | ((cp >> 6) & 0x3f), 0x80 | (cp & 0x3f))
+    else out.push(
+      0xf0 | (cp >> 18),
+      0x80 | ((cp >> 12) & 0x3f),
+      0x80 | ((cp >> 6) & 0x3f),
+      0x80 | (cp & 0x3f),
+    )
+  }
+  return new Uint8Array(out)
 }
 
 /** 安全读取完整响应文本（兼容 XHR 兜底返回的伪 Response） */
